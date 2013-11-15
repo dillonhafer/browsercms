@@ -9,20 +9,27 @@ module ActiveRecord
         Cms::Namespacing.prefixed_table_name(table_name)
       end
 
-      # Pass in ":versioned => false" in the options hash to create a non-versioned table.
+      # Create a table and its versioned counterpart. Example:
+      #   create_content_table :events
+      #   => :cms_events
+      #   => :cms_event_versions
       #
       # @param table_name
       # @param options
       # @option :prefix [Boolean]
+      # @option :versioned [Boolean] false creates a non-versioned table.
+      # @option :name [Boolean] Include a :name field in the generated table.
       def create_content_table(table_name, options={}, &block)
         defaults = {
             versioned: true,
-            prefix: true
+            prefix: true,
+            name: true
         }
         options = defaults.merge(options)
 
         versioned = options.delete(:versioned)
         prefixed = options.delete(:prefix)
+        named = options.delete(:name)
 
         if prefixed
           table_name = Cms::Namespacing.prefixed_table_name(table_name)
@@ -34,7 +41,7 @@ module ActiveRecord
             td.integer :version
             td.integer :lock_version, :default => 0
           end
-          td.string :name unless column_exists?(table_name.to_sym, :name)
+          td.string :name if !column_exists?(table_name.to_sym, :name) && named
           td.boolean :published, :default => false
           td.boolean :deleted, :default => false
           td.boolean :archived, :default => false
@@ -49,7 +56,7 @@ module ActiveRecord
           change_table versioned_table_name do |vt|
             vt.integer :original_record_id
             vt.integer :version
-            vt.string :name unless column_exists?(versioned_table_name.to_sym, :name)
+            vt.string :name if !column_exists?(versioned_table_name.to_sym, :name) && named
             vt.boolean :published, :default => false
             vt.boolean :deleted, :default => false
             vt.boolean :archived, :default => false
@@ -62,19 +69,11 @@ module ActiveRecord
 
       end
 
-      #
-      # @deprecated - create_versioned_table should be considered deprecated and may be removed in a future version.
-      # Use create_content_table instead in your migrations
-      #
-      alias :create_versioned_table :create_content_table
-
-      def drop_versioned_table(table_name)
+      def drop_content_table(table_name)
         table_name = Cms::Namespacing.prefixed_table_name(table_name)
         drop_table "#{table_name.singularize}_versions".to_sym
         drop_table table_name
       end
-
-      alias :drop_content_table :drop_versioned_table
 
       # Rename a column for both its
       def rename_content_column(table_name, old_name, new_name)

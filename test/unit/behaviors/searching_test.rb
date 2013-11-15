@@ -12,7 +12,7 @@ ActiveRecord::Base.connection.instance_eval do
   # Verifies that blocks are created with a :name column if one is not specified.
   drop_table(:searchable_block_without_names) if table_exists?(:searchable_block_without_names)
   drop_table(:searchable_block_without_name_versions) if table_exists?(:searchable_block_without_name_versions)
-  create_versioned_table(:searchable_block_without_names, :prefix => false) do |t|
+  create_content_table(:searchable_block_without_names, :prefix => false) do |t|
     t.string :title
   end
 end

@@ -1,5 +1,5 @@
 class Browsercms300 < ActiveRecord::Migration
-  def self.up
+  def change
     create_table prefix(:users), :force => true do |t|
       t.column :login, :string, :limit => 40
       t.column :first_name, :string, :limit => 40
@@ -12,6 +12,7 @@ class Browsercms300 < ActiveRecord::Migration
       t.column :expires_at, :datetime
       t.column :remember_token, :string, :limit => 40
       t.column :remember_token_expires_at, :datetime
+      t.column :reset_token, :string
     end
     add_index prefix(:users), :login, :unique => true
 
@@ -34,6 +35,7 @@ class Browsercms300 < ActiveRecord::Migration
       t.string :language
       t.boolean :cacheable, :default => false
       t.boolean :hidden, :default => false
+      t.integer :latest_version
     end
 
     create_table prefix(:content_type_groups) do |t|
@@ -71,8 +73,7 @@ class Browsercms300 < ActiveRecord::Migration
       t.timestamps
     end
 
-    create_versioned_table :html_blocks do |t|
-      t.string :name
+    create_content_table :html_blocks do |t|
       t.text :content, :limit => 64.kilobytes + 1
     end
 
@@ -104,13 +105,18 @@ class Browsercms300 < ActiveRecord::Migration
       t.timestamps
     end
 
-    create_content_table :attachments do |t|
-      t.string :file_path
+    create_content_table :attachments, name: false do |t|
+      t.string :data_file_name
+      t.string :data_file_path
       t.string :file_location
-      t.string :file_extension
-      t.string :file_type
-      t.integer :file_size
-      t.timestamps
+      t.string :data_content_type
+      t.integer :data_file_size
+      t.string :data_fingerprint
+      t.string :attachable_type
+      t.string :attachment_name
+      t.integer :attachable_id
+      t.integer :attachable_version
+      t.string :cardinality
     end
 
     create_content_table :file_blocks do |t|
@@ -165,10 +171,10 @@ class Browsercms300 < ActiveRecord::Migration
     end
 
     create_table prefix(:section_nodes) do |t|
-      t.integer :section_id
       t.string :node_type
       t.integer :node_id
       t.integer :position
+      t.string :ancestry
       t.timestamps
     end
 
@@ -176,6 +182,7 @@ class Browsercms300 < ActiveRecord::Migration
       t.string :name
       t.string :url
       t.boolean :new_window, :default => false
+      t.integer :latest_version
       t.timestamps
     end
 
@@ -228,39 +235,52 @@ class Browsercms300 < ActiveRecord::Migration
       t.string :value
       t.timestamps
     end
+
+    INDEXES.each do |index|
+      table, column = *index
+      add_index prefix(table), column
+    end
   end
 
-  def self.down
-    drop_table prefix(:page_route_options)
-    drop_table prefix(:page_routes)
-    drop_table prefix(:tasks)
-    drop_table prefix(:email_messages)
-    drop_table prefix(:taggings)
-    drop_table prefix(:tags)
-    drop_versioned_table :links
-    drop_table prefix(:section_nodes)
-    drop_table prefix(:sites)
-    drop_table prefix(:group_sections)
-    drop_table prefix(:group_type_permissions)
-    drop_table prefix(:group_permissions)
-    drop_table prefix(:permissions)
-    drop_table prefix(:user_group_memberships)
-    drop_table prefix(:groups)
-    drop_table prefix(:group_types)
-    drop_versioned_table :file_blocks
-    drop_versioned_table :attachments
-    drop_table prefix(:redirects)
-    drop_table prefix(:portlet_attributes)
-    drop_table prefix(:portlets)
-    drop_table prefix(:sections)
-    drop_versioned_table :html_blocks
-    drop_table prefix(:connectors)
-    drop_table prefix(:categories)
-    drop_table prefix(:category_types)
-    drop_table prefix(:content_types)
-    drop_table prefix(:content_type_groups)
-    drop_versioned_table :pages
-    drop_versioned_table :dynamic_views
-    drop_table prefix(:users)
-  end
+  # Add some very commonly used indexes to improve the site performance as the # of pages/content grows (i.e. several thousand pages)
+  INDEXES = [
+      [:pages, :deleted],
+      [:pages, :path],
+      [:pages, :version],
+      [:page_versions, :original_record_id],
+      [:groups, :code],
+      [:groups, :group_type_id],
+      [:group_types, :cms_access],
+      [:group_sections, :section_id],
+      [:group_sections, :group_id],
+      [:users, :expires_at],
+      [:user_group_memberships, :group_id],
+      [:user_group_memberships, :user_id],
+      [:group_permissions, :group_id],
+      [:group_permissions, :permission_id],
+      [:group_permissions, [:group_id, :permission_id]],
+      [:section_nodes, :node_type],
+      [:section_nodes, :ancestry],
+      [:connectors, :page_id],
+      [:connectors, :page_version],
+      [:html_blocks, :deleted],
+      [:html_block_versions, :original_record_id],
+      [:html_block_versions, :version],
+      [:portlet_attributes, :portlet_id],
+      [:portlets, :name],
+      [:sections, :path],
+      [:redirects, :from_path],
+      [:connectors, :connectable_version],
+      [:connectors, :connectable_type],
+      [:content_types, :content_type_group_id],
+      [:content_types, :name],
+      [:file_block_versions, :original_record_id],
+      [:file_block_versions, :version],
+      [:file_blocks, :deleted],
+      [:file_blocks, :type],
+      [:attachment_versions, :original_record_id],
+      [:tasks, :page_id],
+      [:tasks, :completed_at],
+      [:tasks, :assigned_to_id],
+  ]
 end
