@@ -35,8 +35,8 @@ class Browsercms300 < ActiveRecord::Migration
       t.string :language
       t.boolean :cacheable, :default => false
       t.boolean :hidden, :default => false
-      t.integer :latest_version
     end
+    add_column prefix(:pages), :latest_version, :integer
 
     create_table prefix(:content_type_groups) do |t|
       t.string :name
@@ -182,9 +182,10 @@ class Browsercms300 < ActiveRecord::Migration
       t.string :name
       t.string :url
       t.boolean :new_window, :default => false
-      t.integer :latest_version
       t.timestamps
     end
+    add_column prefix(:links), :latest_version, :integer
+
 
     create_table prefix(:tags) do |t|
       t.string :name
